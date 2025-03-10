@@ -1,5 +1,7 @@
 # Universal Document Scanner
 
+## Live: https://document-scanner-app.up.railway.app/
+
 ## Overview
 A powerful web application for extracting document information using Google Document AI. Seamlessly scan driver's licenses, IDs, and official documents via camera or file upload with an intuitive interface.
 
