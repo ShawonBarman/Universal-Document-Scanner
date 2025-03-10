@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Document Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f4f4;
+            overscroll-behavior: none;
+        }
+        .drop-zone {
+            border: 2px dashed #a0aec0;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.drag-over {
+            background-color: #e6f2ff;
+            border-color: #4299e1;
+        }
+        .preview-image {
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .input-file {
+            display: none;
+        }
+        #camera-preview {
+            max-height: 400px;
+            width: 100%;
+            object-fit: contain;
+            border-radius: 12px;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-50">
+    <div class="container mx-auto px-4 py-8 flex-grow flex flex-col max-w-4xl">
+        <header class="text-center mb-4">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-file-upload mr-3 text-blue-600"></i>
+                Document Scanner
+            </h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                Easily scan and extract information from driver's licenses, ID cards, and other documents
+            </p>
+        </header>
+
+        <main class="flex-grow flex flex-col items-center justify-center">
+            <div class="w-full bg-white rounded-2xl shadow-lg p-6 md:p-10">
+                <!-- Upload Methods -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Camera Capture -->
+                    <div id="camera-capture" class="bg-blue-50 p-4 text-center cursor-pointer hover:bg-blue-100 rounded-lg transition">
+                        <i class="fas fa-camera text-4xl text-blue-600 mb-4"></i>
+                        <h3 class="font-semibold text-gray-800">Camera Capture</h3>
+                        <p class="text-sm text-gray-600">Take a photo in real-time</p>
+                        <input type="file" id="camera-input" accept="image/*" capture="environment" class="input-file">
+                    </div>
+
+                    <!-- File Upload -->
+                    <div id="file-upload" class="bg-green-50 p-4 text-center cursor-pointer hover:bg-green-100 rounded-lg transition">
+                        <i class="fas fa-upload text-4xl text-green-600 mb-4"></i>
+                        <h3 class="font-semibold text-gray-800">Upload File</h3>
+                        <p class="text-sm text-gray-600">Choose from device</p>
+                        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf" class="input-file">
+                    </div>
+
+                    <!-- Drag and Drop -->
+                    <div id="drag-drop" class="bg-purple-50 p-4 text-center cursor-pointer hover:bg-purple-100 rounded-lg transition drop-zone">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-purple-600 mb-4"></i>
+                        <h3 class="font-semibold text-gray-800">Drag & Drop</h3>
+                        <p class="text-sm text-gray-600">Drop files here</p>
+                    </div>
+                </div>
+
+                <!-- Camera Section -->
+                <div id="camera-section" class="hidden">
+                    <div class="flex justify-center space-x-4 mb-4">
+                        <button id="capture-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+                            <i class="fas fa-camera mr-2"></i>Capture
+                        </button>
+                        <button id="switch-camera-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">
+                            <i class="fas fa-sync mr-2"></i>Switch Camera
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <video id="camera-view" class="w-full rounded-lg" autoplay playsinline></video>
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div id="preview-section" class="hidden">
+                    <div class="bg-gray-100 rounded-2xl p-6">
+                        <div class="flex justify-center space-x-4 mb-6">
+                            <button id="extract-btn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition flex items-center">
+                                <i class="fas fa-magic mr-2"></i>Extract Information
+                            </button>
+                            <button id="retake-btn" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition flex items-center">
+                                <i class="fas fa-redo mr-2"></i>Retake/Reupload
+                            </button>
+                        </div>
+                        <img id="preview-image" class="preview-image mx-auto mb-4" src="#" alt="Document Preview">
+                        <canvas id="captured-canvas" class="hidden"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Results Modal -->
+        <div id="results-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-auto p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Extracted Information</h2>
+                    <button id="close-results" class="text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <div id="results-content" class="space-y-3">
+                    <!-- Results will be dynamically populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const cameraCapture = document.getElementById('camera-capture');
+        const fileUpload = document.getElementById('file-upload');
+        const dragDrop = document.getElementById('drag-drop');
+        const cameraInput = document.getElementById('camera-input');
+        const fileInput = document.getElementById('file-input');
+        const cameraSection = document.getElementById('camera-section');
+        const cameraView = document.getElementById('camera-view');
+        const captureBtn = document.getElementById('capture-btn');
+        const switchCameraBtn = document.getElementById('switch-camera-btn');
+        const previewSection = document.getElementById('preview-section');
+        const previewImage = document.getElementById('preview-image');
+        const capturedCanvas = document.getElementById('captured-canvas');
+        const extractBtn = document.getElementById('extract-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const resultsModal = document.getElementById('results-modal');
+        const resultsContent = document.getElementById('results-content');
+        const closeResultsBtn = document.getElementById('close-results');
+
+        // State variables
+        let selectedFile = null;
+        let currentStream = null;
+        let frontCamera = true;
+
+        // Reset all sections
+        function resetAllSections() {
+            cameraSection.classList.add('hidden');
+            previewSection.classList.add('hidden');
+            selectedFile = null;
+            previewImage.src = '';
+        }
+
+        // Camera Capture Methods
+        async function initCamera(useFrontCamera = true) {
+            // Stop existing stream
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Camera constraints
+            const constraints = {
+                video: { 
+                    facingMode: useFrontCamera ? 'user' : 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            try {
+                // Get media stream
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                cameraView.srcObject = currentStream;
+                
+                // Show camera section
+                cameraSection.classList.remove('hidden');
+                previewSection.classList.add('hidden');
+            } catch (error) {
+                console.error('Camera access error:', error);
+                alert('Could not access the camera. Please check permissions.');
+            }
+        }
+
+        // Capture photo from camera
+        function capturePhoto() {
+            const context = capturedCanvas.getContext('2d');
+            
+            // Set canvas dimensions to match video
+            capturedCanvas.width = cameraView.videoWidth;
+            capturedCanvas.height = cameraView.videoHeight;
+            
+            // Draw current video frame
+            context.drawImage(cameraView, 0, 0, capturedCanvas.width, capturedCanvas.height);
+            
+            // Convert to file
+            capturedCanvas.toBlob(blob => {
+                // Create file object
+                selectedFile = new File([blob], 'captured-image.jpg', { type: 'image/jpeg' });
+                
+                // Show preview
+                previewImage.src = URL.createObjectURL(selectedFile);
+                cameraSection.classList.add('hidden');
+                previewSection.classList.remove('hidden');
+                
+                // Stop camera stream
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+            }, 'image/jpeg', 0.95);
+        }
+
+        // File Selection Handlers
+        function handleFileSelection(file) {
+            if (!file) return;
+
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please upload a JPG, PNG, or PDF file.');
+                return;
+            }
+
+            // Store the file
+            selectedFile = file;
+
+            // Read and show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewSection.classList.remove('hidden');
+                
+                // Hide other sections
+                cameraSection.classList.add('hidden');
+            };
+
+            // Check if it's an image or PDF
+            if (file.type.startsWith('image/')) {
+                reader.readAsDataURL(file);
+            } else {
+                // For PDF, use a PDF icon
+                previewImage.src = 'https://cdn-icons-png.flaticon.com/512/28/28773.png';
+                previewSection.classList.remove('hidden');
+            }
+        }
+
+        // Event Listeners
+        cameraCapture.addEventListener('click', () => {
+            resetAllSections();
+            initCamera(true);
+        });
+
+        fileUpload.addEventListener('click', () => {
+            resetAllSections();
+            fileInput.click();
+        });
+
+        // Drag and Drop Handlers
+        dragDrop.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dragDrop.classList.add('drag-over');
+        });
+
+        dragDrop.addEventListener('dragleave', () => {
+            dragDrop.classList.remove('drag-over');
+        });
+
+        dragDrop.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragDrop.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                resetAllSections();
+                handleFileSelection(files[0]);
+            }
+        });
+
+        // File Input Handlers
+        cameraInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            resetAllSections();
+            handleFileSelection(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            resetAllSections();
+            handleFileSelection(file);
+        });
+
+        // Camera Buttons
+        captureBtn.addEventListener('click', capturePhoto);
+
+        switchCameraBtn.addEventListener('click', () => {
+            frontCamera = !frontCamera;
+            initCamera(frontCamera);
+        });
+
+        // Preview Section Buttons
+        retakeBtn.addEventListener('click', () => {
+            resetAllSections();
+            // Decide whether to go to camera or file upload
+            fileInput.click();
+        });
+
+        extractBtn.addEventListener('click', () => {
+            if (!selectedFile) {
+                alert('Please select a document first.');
+                return;
+            }
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            // Show loading state
+            resultsContent.innerHTML = `
+                <div class="text-center py-10">
+                    <div class="animate-spin mx-auto mb-4 w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                    <p class="text-gray-600">Extracting information...</p>
+                </div>
+            `;
+            resultsModal.classList.remove('hidden');
+
+            // Send to backend
+            fetch('/extract', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle successful extraction
+                if (data.status === 'success') {
+                    // Generate results HTML
+                    const resultsHTML = Object.entries(data.data)
+                        .map(([key, value]) => `
+                            <div class="bg-gray-100 p-3 rounded-lg">
+                                <span class="font-semibold text-gray-700">${key}:</span>
+                                <span class="text-gray-600">${value}</span>
+                            </div>
+                        `)
+                        .join('');
+
+                    resultsContent.innerHTML = `
+                        <div class="space-y-4">
+                            <h3 class="text-xl font-bold text-green-600 mb-4">
+                                <i class="fas fa-check-circle mr-2"></i>Information Extracted Successfully
+                            </h3>
+                            ${resultsHTML}
+                            <div class="text-sm text-gray-500 mt-4">
+                                Processing Time: ${data.processing_time?.total_time || 'N/A'}
+                            </div>
+                            
+                            <!-- Export and Share Options -->
+                            <div class="flex space-x-2 mt-4">
+                                <button id="copy-results" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition">
+                                    <i class="fas fa-copy mr-2"></i>Copy Results
+                                </button>
+                                <button id="download-results" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition">
+                                    <i class="fas fa-download mr-2"></i>Download
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Additional event listeners for new buttons
+                    const copyResultsBtn = document.getElementById('copy-results');
+                    const downloadResultsBtn = document.getElementById('download-results');
+
+                    // Copy results to clipboard
+                    copyResultsBtn.addEventListener('click', () => {
+                        const resultText = Object.entries(data.data)
+                            .map(([key, value]) => `${key}: ${value}`)
+                            .join('\n');
+                        
+                        navigator.clipboard.writeText(resultText).then(() => {
+                            copyResultsBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Copied!';
+                            setTimeout(() => {
+                                copyResultsBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Copy Results';
+                            }, 2000);
+                        }).catch(err => {
+                            console.error('Could not copy text: ', err);
+                        });
+                    });
+
+                    // Download results as text file
+                    downloadResultsBtn.addEventListener('click', () => {
+                        const resultText = Object.entries(data.data)
+                            .map(([key, value]) => `${key}: ${value}`)
+                            .join('\n');
+                        
+                        const blob = new Blob([resultText], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'document_extraction_results.txt';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                } else {
+                    // Handle error scenario
+                    resultsContent.innerHTML = `
+                        <div class="text-center text-red-600 py-10">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                            <h3 class="text-xl font-semibold mb-2">Extraction Failed</h3>
+                            <p class="text-gray-700 mb-4">${data.message || 'Unable to extract information'}</p>
+                            
+                            <!-- Error Troubleshooting Tips -->
+                            <div class="bg-red-50 p-4 rounded-lg text-left text-sm">
+                                <h4 class="font-semibold mb-2">Troubleshooting Tips:</h4>
+                                <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                    <li>Ensure the document is clearly visible</li>
+                                    <li>Check that the entire document is within the frame</li>
+                                    <li>Avoid glare or shadows on the document</li>
+                                    <li>Use good lighting conditions</li>
+                                    <li>Try a different photo or scan</li>
+                                </ul>
+                            </div>
+                            
+                            <button id="retry-extraction" class="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition">
+                                <i class="fas fa-redo mr-2"></i>Try Again
+                            </button>
+                        </div>
+                    `;
+
+                    // Retry extraction event listener
+                    const retryExtractionBtn = document.getElementById('retry-extraction');
+                    retryExtractionBtn.addEventListener('click', () => {
+                        resultsModal.classList.add('hidden');
+                        resetAllSections();
+                        fileInput.click();
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Extraction error:', error);
+                resultsContent.innerHTML = `
+                    <div class="text-center text-red-600 py-10">
+                        <i class="fas fa-server text-4xl mb-4"></i>
+                        <h3 class="text-xl font-semibold mb-2">Server Error</h3>
+                        <p class="text-gray-700 mb-4">Unable to connect to the extraction service</p>
+                        
+                        <div class="bg-red-50 p-4 rounded-lg text-left text-sm">
+                            <h4 class="font-semibold mb-2">Possible Reasons:</h4>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li>Server is temporarily unavailable</li>
+                                <li>Network connection issues</li>
+                                <li>Service might be under maintenance</li>
+                            </ul>
+                        </div>
+                        
+                        <button id="retry-server" class="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition">
+                            <i class="fas fa-sync mr-2"></i>Retry Connection
+                        </button>
+                    </div>
+                `;
+
+                // Retry server connection event listener
+                const retryServerBtn = document.getElementById('retry-server');
+                retryServerBtn.addEventListener('click', () => {
+                    resultsModal.classList.add('hidden');
+                    extractBtn.click(); // Retry the same extraction
+                });
+            });
+        });
+
+        // Close Results Modal
+        closeResultsBtn.addEventListener('click', () => {
+            resultsModal.classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
